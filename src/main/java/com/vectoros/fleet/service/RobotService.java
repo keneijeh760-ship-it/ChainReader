@@ -5,9 +5,12 @@ import com.vectoros.fleet.dto.RobotResponse;
 import com.vectoros.fleet.dto.RobotUpdateRequest;
 import com.vectoros.fleet.entity.Robot;
 import com.vectoros.fleet.exception.DuplicateRobotException;
+import com.vectoros.fleet.exception.InvalidTaskStateException;
 import com.vectoros.fleet.exception.RobotNotFoundException;
 import com.vectoros.fleet.mapper.RobotMapper;
 import com.vectoros.fleet.repository.RobotRepository;
+import com.vectoros.fleet.repository.TaskRepository;
+import com.vectoros.fleet.entity.TaskStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -15,17 +18,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class RobotService {
 
     private static final Logger log = LoggerFactory.getLogger(RobotService.class);
 
+    private static final Set<TaskStatus> ACTIVE_TASK_STATUSES = Set.of(
+            TaskStatus.NEW,
+            TaskStatus.PENDING,
+            TaskStatus.ASSIGNED,
+            TaskStatus.IN_PROGRESS
+    );
+
     private final RobotRepository robotRepository;
+    private final TaskRepository taskRepository;
     private final RobotMapper robotMapper;
 
-    public RobotService(RobotRepository robotRepository, RobotMapper robotMapper) {
+    public RobotService(RobotRepository robotRepository,
+                        TaskRepository taskRepository,
+                        RobotMapper robotMapper) {
         this.robotRepository = robotRepository;
+        this.taskRepository = taskRepository;
         this.robotMapper = robotMapper;
     }
 
@@ -98,8 +113,7 @@ public class RobotService {
 
     /**
      * Deletes a robot by id.
-     * <p>
-     * Future sprints will enforce: deletion only when no active tasks are assigned.
+     * Deletion is blocked when the robot has active tasks assigned.
      *
      * @param robotId robot identifier
      */
@@ -108,7 +122,11 @@ public class RobotService {
         Robot robot = robotRepository.findById(robotId)
                 .orElseThrow(() -> new RobotNotFoundException(robotId));
 
-        // TODO (future sprint): Prevent deletion when active tasks exist.
+        if (taskRepository.existsByAssignedRobot_IdAndStatusIn(robotId, ACTIVE_TASK_STATUSES)) {
+            throw new InvalidTaskStateException(
+                    "Cannot delete robot with active tasks assigned: id=" + robotId);
+        }
+
         robotRepository.delete(robot);
         log.info("Robot deleted: id={}", robotId);
     }

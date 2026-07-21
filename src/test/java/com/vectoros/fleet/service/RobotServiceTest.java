@@ -6,9 +6,11 @@ import com.vectoros.fleet.dto.RobotUpdateRequest;
 import com.vectoros.fleet.entity.Robot;
 import com.vectoros.fleet.entity.RobotStatus;
 import com.vectoros.fleet.exception.DuplicateRobotException;
+import com.vectoros.fleet.exception.InvalidTaskStateException;
 import com.vectoros.fleet.exception.RobotNotFoundException;
 import com.vectoros.fleet.mapper.RobotMapper;
 import com.vectoros.fleet.repository.RobotRepository;
+import com.vectoros.fleet.repository.TaskRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,13 +31,16 @@ class RobotServiceTest {
     @Mock
     RobotRepository robotRepository;
 
+    @Mock
+    TaskRepository taskRepository;
+
     RobotMapper robotMapper = new RobotMapper();
 
     RobotService robotService;
 
     @BeforeEach
     void setUp() {
-        robotService = new RobotService(robotRepository, robotMapper);
+        robotService = new RobotService(robotRepository, taskRepository, robotMapper);
     }
 
     @Test
@@ -107,10 +112,23 @@ class RobotServiceTest {
         setId(robot, 1L);
 
         when(robotRepository.findById(1L)).thenReturn(Optional.of(robot));
+        when(taskRepository.existsByAssignedRobot_IdAndStatusIn(eq(1L), any())).thenReturn(false);
 
         robotService.deleteRobot(1L);
 
         verify(robotRepository).delete(robot);
+    }
+
+    @Test
+    void deleteRobot_throws_whenRobotHasActiveTasks() throws Exception {
+        Robot robot = Robot.createNew("Robot-01");
+        setId(robot, 1L);
+
+        when(robotRepository.findById(1L)).thenReturn(Optional.of(robot));
+        when(taskRepository.existsByAssignedRobot_IdAndStatusIn(eq(1L), any())).thenReturn(true);
+
+        assertThrows(InvalidTaskStateException.class, () -> robotService.deleteRobot(1L));
+        verify(robotRepository, never()).delete(any());
     }
 
     private void setId(Robot robot, Long id) throws Exception {

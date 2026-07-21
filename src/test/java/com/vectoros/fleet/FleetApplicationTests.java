@@ -22,13 +22,17 @@ class FleetApplicationTests {
     JdbcTemplate jdbcTemplate;
 
     @Test
-    void flywayMigrationCreatesRobotsTable() {
-        Integer tableExists = jdbcTemplate.queryForObject(
+    void flywayMigrationCreatesRobotsAndTasksTables() {
+        Integer robotsTableExists = jdbcTemplate.queryForObject(
                 "SELECT CASE WHEN to_regclass('public.robots') IS NOT NULL THEN 1 ELSE 0 END",
                 Integer.class
         );
+        Integer tasksTableExists = jdbcTemplate.queryForObject(
+                "SELECT CASE WHEN to_regclass('public.tasks') IS NOT NULL THEN 1 ELSE 0 END",
+                Integer.class
+        );
 
-        Assertions.assertNotNull(tableExists);
-        Assertions.assertEquals(1, tableExists);
+        Assertions.assertEquals(1, robotsTableExists);
+        Assertions.assertEquals(1, tasksTableExists);
     }
 }

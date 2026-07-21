@@ -29,6 +29,26 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(ex.getMessage(), List.of()));
     }
 
+    @ExceptionHandler(TaskNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleTaskNotFound(TaskNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(ex.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(InvalidTaskStateException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidTaskState(InvalidTaskStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(ex.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(TaskAssignmentException.class)
+    public ResponseEntity<ApiErrorResponse> handleTaskAssignment(TaskAssignmentException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(ex.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(RobotUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleRobotUnavailable(RobotUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(ex.getMessage(), List.of()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         List<FieldError> fieldErrors = ex.getBindingResult().getFieldErrors();
