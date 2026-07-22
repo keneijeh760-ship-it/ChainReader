@@ -14,6 +14,10 @@ import com.vectoros.fleet.exception.RobotUnavailableException;
 import com.vectoros.fleet.exception.TaskAssignmentException;
 import com.vectoros.fleet.exception.TaskNotFoundException;
 import com.vectoros.fleet.mapper.TaskMapper;
+import com.vectoros.fleet.mqtt.events.TaskAssignedEvent;
+import com.vectoros.fleet.mqtt.events.TaskCancelledEvent;
+import com.vectoros.fleet.mqtt.events.TaskStatusUpdatedEvent;
+import com.vectoros.fleet.mqtt.publisher.RobotCommandPublisher;
 import com.vectoros.fleet.repository.RobotRepository;
 import com.vectoros.fleet.repository.TaskRepository;
 import org.slf4j.Logger;
@@ -21,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -31,13 +36,16 @@ public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
     private final RobotRepository robotRepository;
     private final TaskMapper taskMapper;
+    private final RobotCommandPublisher robotCommandPublisher;
 
     public TaskServiceImpl(TaskRepository taskRepository,
                            RobotRepository robotRepository,
-                           TaskMapper taskMapper) {
+                           TaskMapper taskMapper,
+                           RobotCommandPublisher robotCommandPublisher) {
         this.taskRepository = taskRepository;
         this.robotRepository = robotRepository;
         this.taskMapper = taskMapper;
+        this.robotCommandPublisher = robotCommandPublisher;
     }
 
     /**
@@ -113,7 +121,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /**
-     * Assigns a robot to a task.
+     * Assigns a robot to a task and publishes a TaskAssignedEvent.
      * The task must be in NEW or PENDING status to accept assignment.
      * Robots with ERROR status cannot be assigned.
      *
@@ -143,6 +151,16 @@ public class TaskServiceImpl implements TaskService {
 
         task.assignRobot(robot);
         Task saved = taskRepository.save(task);
+
+        robotCommandPublisher.publishTaskAssigned(TaskAssignedEvent.builder()
+                .taskId(saved.getId())
+                .taskNumber(saved.getTaskNumber())
+                .robotId(robot.getId())
+                .pickupLocation(saved.getPickupLocation())
+                .dropoffLocation(saved.getDropoffLocation())
+                .priority(saved.getPriority())
+                .timestamp(Instant.now())
+                .build());
 
         log.info("Task assigned: taskNumber={} robotId={}", task.getTaskNumber(), robot.getId());
         return taskMapper.toResponse(saved);
@@ -179,6 +197,8 @@ public class TaskServiceImpl implements TaskService {
         task.updateStatus(newStatus);
         Task saved = taskRepository.save(task);
 
+        publishStatusEvents(saved, newStatus);
+
         if (newStatus == TaskStatus.COMPLETED) {
             log.info("Task completed: taskNumber={}", task.getTaskNumber());
         } else if (newStatus == TaskStatus.CANCELLED) {
@@ -190,6 +210,26 @@ public class TaskServiceImpl implements TaskService {
         }
 
         return taskMapper.toResponse(saved);
+    }
+
+    private void publishStatusEvents(Task task, TaskStatus newStatus) {
+        Instant now = Instant.now();
+
+        robotCommandPublisher.publishTaskStatusUpdated(TaskStatusUpdatedEvent.builder()
+                .taskId(task.getId())
+                .status(newStatus)
+                .timestamp(now)
+                .build());
+
+        if (newStatus == TaskStatus.CANCELLED) {
+            Long robotId = task.getAssignedRobot() != null ? task.getAssignedRobot().getId() : null;
+            robotCommandPublisher.publishTaskCancelled(TaskCancelledEvent.builder()
+                    .taskId(task.getId())
+                    .taskNumber(task.getTaskNumber())
+                    .robotId(robotId)
+                    .timestamp(now)
+                    .build());
+        }
     }
 
     private Task findTaskById(Long taskId) {

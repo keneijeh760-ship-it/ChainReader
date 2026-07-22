@@ -17,6 +17,21 @@ services:
       retries: 5
       start_period: 10s
 
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: vectoros-fleet-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   fleet:
     build: .
     container_name: vectoros-fleet
@@ -28,9 +43,14 @@ services:
       DB_NAME: vectoros_fleet
       DB_USER: vectoros
       DB_PASSWORD: vectoros
+      MQTT_ENABLED: "true"
+      MQTT_BROKER_URL: tcp://mosquitto:1883
+      MQTT_CLIENT_ID: vectoros-fleet
     depends_on:
       postgres:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 30s

@@ -1,0 +1,5 @@
+# Disable MQTT during unit/web tests so suites do not wait on a missing broker.
+# MQTT integration tests override these properties explicitly.
+vectoros:
+  mqtt:
+    enabled: false

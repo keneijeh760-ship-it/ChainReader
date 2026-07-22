@@ -21,6 +21,19 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+vectoros:
+  mqtt:
+    enabled: ${MQTT_ENABLED:true}
+    broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+    client-id: ${MQTT_CLIENT_ID:vectoros-fleet}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}
+    qos: ${MQTT_QOS:1}
+    keep-alive-interval: ${MQTT_KEEP_ALIVE:60}
+    connection-timeout: ${MQTT_CONNECTION_TIMEOUT:30}
+    automatic-reconnect: true
+    clean-session: true
+
 springdoc:
   api-docs:
     path: /api-docs

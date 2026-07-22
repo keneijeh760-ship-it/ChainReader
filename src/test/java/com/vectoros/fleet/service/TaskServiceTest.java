@@ -15,6 +15,7 @@ import com.vectoros.fleet.exception.RobotUnavailableException;
 import com.vectoros.fleet.exception.TaskAssignmentException;
 import com.vectoros.fleet.exception.TaskNotFoundException;
 import com.vectoros.fleet.mapper.TaskMapper;
+import com.vectoros.fleet.mqtt.publisher.RobotCommandPublisher;
 import com.vectoros.fleet.repository.RobotRepository;
 import com.vectoros.fleet.repository.TaskRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,12 +40,15 @@ class TaskServiceTest {
     @Mock
     RobotRepository robotRepository;
 
+    @Mock
+    RobotCommandPublisher robotCommandPublisher;
+
     TaskMapper taskMapper = new TaskMapper();
     TaskService taskService;
 
     @BeforeEach
     void setUp() {
-        taskService = new TaskServiceImpl(taskRepository, robotRepository, taskMapper);
+        taskService = new TaskServiceImpl(taskRepository, robotRepository, taskMapper, robotCommandPublisher);
     }
 
     @Test
@@ -127,6 +131,7 @@ class TaskServiceTest {
 
         assertEquals(TaskStatus.ASSIGNED, response.getStatus());
         assertEquals(3L, response.getAssignedRobotId());
+        verify(robotCommandPublisher).publishTaskAssigned(any());
     }
 
     @Test
