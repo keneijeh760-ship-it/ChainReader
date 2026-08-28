@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
 
 
 @asynccontextmanager
@@ -9,7 +12,16 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    return FastAPI(title="ChainReader API", version="0.1.0", lifespan=lifespan)
+    settings = get_settings()
+    app = FastAPI(title="ChainReader API", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    return app
 
 
 app = create_app()
